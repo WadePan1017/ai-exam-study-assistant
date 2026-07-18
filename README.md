@@ -121,5 +121,6 @@ pnpm build
 - `docs/DECISIONS.md`：已冻结的产品与技术决策
 - `docs/CHANGELOG.md`：阶段变更
 - `docs/KNOWN_ISSUES.md`：已知限制
+- `docs/CONTENT_SOURCE_AUDIT.md`：资料来源、采购建议和内容发布门禁
 - `docs/PHASE_1_ACCEPTANCE.md`：Phase 1 验收结果和待办
 - `docs/PHASE_2_ACCEPTANCE.md`：Phase 2 验收结果和待办
