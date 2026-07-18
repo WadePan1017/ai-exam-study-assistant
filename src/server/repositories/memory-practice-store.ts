@@ -10,6 +10,7 @@ import type {
   QuestionImportPayload,
 } from "@/features/practice/question-import-schema";
 import type { ImportReport } from "./learning-content-store";
+import type { MockExamAttemptRecord } from "./mock-exam-store";
 import type {
   KnowledgeReference,
   MistakeFilters,
@@ -133,6 +134,27 @@ export class MemoryPracticeStore implements PracticeStore {
     private readonly now: () => Date = () => new Date(),
     private readonly timeZone = "Asia/Shanghai",
   ) {}
+
+  async recordMockExamAttempt(attempt: MockExamAttemptRecord) {
+    const question = this.currentQuestions().find(
+      (candidate) =>
+        candidate.external_id === attempt.externalId &&
+        candidate.version === attempt.version,
+    );
+    if (!question) {
+      throw new Error("模考题目版本不存在");
+    }
+
+    this.recordAttempt({
+      attemptedAt: attempt.attemptedAt,
+      confidence: "uncertain",
+      isCorrect: attempt.isCorrect,
+      questionExternalId: attempt.externalId,
+      questionVersion: attempt.version,
+      selectedKeys: attempt.selectedKeys,
+      userId: attempt.userId,
+    });
+  }
 
   private favoriteKey(userId: string, externalId: string) {
     return `${userId}:${externalId}`;
@@ -488,19 +510,44 @@ export class MemoryPracticeStore implements PracticeStore {
       confidence: input.confidence,
       selectedKeys: [...input.selectedKeys],
     });
-    this.attempts.push({
+    this.recordAttempt({
+      attemptedAt,
       confidence: input.confidence,
-      createdAt: attemptedAt.toISOString(),
-      id: crypto.randomUUID(),
       isCorrect: result.isCorrect,
       questionExternalId: question.external_id,
       questionVersion: question.version,
       selectedKeys: [...input.selectedKeys],
       userId,
     });
+    if (session.answers.size === session.questions.length) {
+      session.status = "completed";
+    }
+
+    return this.toView(session);
+  }
+
+  private recordAttempt(input: {
+    attemptedAt: Date;
+    confidence: "certain" | "uncertain";
+    isCorrect: boolean;
+    questionExternalId: string;
+    questionVersion: number;
+    selectedKeys: string[];
+    userId: string;
+  }) {
+    this.attempts.push({
+      confidence: input.confidence,
+      createdAt: input.attemptedAt.toISOString(),
+      id: crypto.randomUUID(),
+      isCorrect: input.isCorrect,
+      questionExternalId: input.questionExternalId,
+      questionVersion: input.questionVersion,
+      selectedKeys: [...input.selectedKeys],
+      userId: input.userId,
+    });
     const reviewKey = this.favoriteKey(
-      userId,
-      question.external_id,
+      input.userId,
+      input.questionExternalId,
     );
     const previousReview = this.reviewStates.get(reviewKey);
     const previousProgress: ReviewProgress | null = previousReview
@@ -519,9 +566,9 @@ export class MemoryPracticeStore implements PracticeStore {
     const nextProgress = updateReviewProgress(
       previousProgress,
       {
-        attemptedAt,
+        attemptedAt: input.attemptedAt,
         confidence: input.confidence,
-        isCorrect: result.isCorrect,
+        isCorrect: input.isCorrect,
       },
       this.timeZone,
     );
@@ -535,17 +582,12 @@ export class MemoryPracticeStore implements PracticeStore {
           masteredAt: nextProgress.masteredAt?.toISOString() ?? null,
           nextReviewAt:
             nextProgress.nextReviewAt?.toISOString() ?? null,
-          questionExternalId: question.external_id,
+          questionExternalId: input.questionExternalId,
           reviewLevel: nextProgress.reviewLevel,
-          userId,
+          userId: input.userId,
         },
       );
     }
-    if (session.answers.size === session.questions.length) {
-      session.status = "completed";
-    }
-
-    return this.toView(session);
   }
 
   async setFavorite(

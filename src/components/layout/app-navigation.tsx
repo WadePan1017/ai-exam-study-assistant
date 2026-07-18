@@ -8,6 +8,7 @@ import {
   NotebookTabs,
   Settings,
   ShieldCheck,
+  Timer,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,6 +17,7 @@ const primaryItems = [
   { href: "/", label: "首页", icon: Home },
   { href: "/study", label: "学习", icon: BookOpen },
   { href: "/practice", label: "刷题", icon: ClipboardCheck },
+  { href: "/mock-exam", label: "模考", icon: Timer },
   { href: "/mistakes", label: "错题", icon: NotebookTabs },
   { href: "/settings", label: "我的", icon: CircleUserRound },
 ] as const;
