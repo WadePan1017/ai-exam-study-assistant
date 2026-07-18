@@ -65,7 +65,7 @@ export default function DashboardPage() {
           <div>
             <h2 className="font-semibold text-amber-950">当前处于工程基础阶段</h2>
             <p className="mt-1 text-sm leading-6 text-amber-900/80">
-              题库、知识点、错题和模考尚未导入。页面只展示真实空状态，下一阶段完成内容导入后才会开始累计学习数据。
+              学习、刷题、错题和模考入口已经可用；首页统计与今日任务将在后续报告阶段接入真实学习记录。
             </p>
           </div>
         </div>
