@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "exam_code": "system-integration-project-management-engineer",
+  "items": [
+    {
+      "external_id": "kp-information-system-lifecycle",
+      "syllabus_path": [
+        "信息化发展",
+        "信息系统基础",
+        "信息系统生命周期"
+      ],
+      "title": "信息系统生命周期",
+      "summary": "用阶段视角理解信息系统从规划到退出的完整过程。",
+      "content_md": "信息系统生命周期通常包含规划、分析、设计、实施、运行维护和退出等连续阶段。阶段划分用于明确目标、责任与交付物。",
+      "exam_focus_md": "关注各阶段的主要任务，以及阶段之间的先后关系。",
+      "confusion_md": "生命周期阶段与项目管理过程组的观察角度不同，不应机械地一一对应。",
+      "work_example_md": "企业上线业务系统前先完成需求分析和方案设计，上线后进入运行维护阶段。",
+      "formula_md": "",
+      "importance": "A",
+      "difficulty": 2,
+      "source": {
+        "type": "self_authored",
+        "note": "依据公开的信息系统基础概念原创整理",
+        "copyright_status": "self_authored"
+      },
+      "review_status": "published",
+      "version": 1
+    }
+  ]
+}
