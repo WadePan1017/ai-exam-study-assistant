@@ -36,22 +36,31 @@ test("owner studies, records notes, imports JSON, and searches on a phone", asyn
   await expect(page.getByLabel("收藏这个知识点")).toBeChecked();
 
   await page.goto("/admin");
-  await page
+  const knowledgeImport = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "导入知识点 JSON" }),
+  });
+  await knowledgeImport
     .locator('input[type="file"]')
     .setInputFiles(
       path.resolve("tests/fixtures/knowledge-import-valid.json"),
     );
-  await page.getByRole("button", { name: "校验并预览" }).click();
+  await knowledgeImport
+    .getByRole("button", { name: "校验并预览" })
+    .click();
   await expect(
     page.getByText("校验通过，请确认预览后再导入"),
   ).toBeVisible();
   await expect(page.getByText("信息系统生命周期")).toBeVisible();
 
-  await page.getByRole("button", { name: "确认事务导入" }).click();
+  await knowledgeImport
+    .getByRole("button", { name: "确认事务导入" })
+    .click();
   await expect(page.getByText("导入事务已完成")).toBeVisible();
   await expect(page.getByText(/新增 1，更新 0，跳过 0，失败 0/)).toBeVisible();
 
-  await page.getByRole("button", { name: "校验并预览" }).click();
+  await knowledgeImport
+    .getByRole("button", { name: "校验并预览" })
+    .click();
   await expect(page.getByText("版本相同，保持现有内容")).toBeVisible();
 
   await page.goto("/study?q=生命周期");

@@ -70,6 +70,11 @@ const stateRowSchema = z.object({
   is_favorite: z.boolean(),
 });
 
+const knowledgeReferenceRowSchema = z.object({
+  external_id: z.string(),
+  syllabus_node_id: z.string().uuid(),
+});
+
 const importRpcSchema = z.object({
   job_id: z.string().uuid(),
   file_name: z.string(),
@@ -164,6 +169,34 @@ export class SupabaseLearningContentStore
 
     throwIfError(error);
     return z.object({ id: z.string().uuid() }).parse(data).id;
+  }
+
+  async getKnowledgeReferences() {
+    const examId = await this.getExamId();
+    const [nodesResult, pointsResult] = await Promise.all([
+      this.client
+        .from("syllabus_nodes")
+        .select("id,parent_id,title")
+        .eq("exam_id", examId)
+        .neq("status", "archived"),
+      this.client
+        .from("knowledge_points")
+        .select("external_id,syllabus_node_id")
+        .eq("exam_id", examId)
+        .neq("review_status", "archived"),
+    ]);
+
+    throwIfError(nodesResult.error);
+    throwIfError(pointsResult.error);
+
+    const nodes = z.array(syllabusNodeRowSchema).parse(nodesResult.data);
+    return z
+      .array(knowledgeReferenceRowSchema)
+      .parse(pointsResult.data)
+      .map((point) => ({
+        externalId: point.external_id,
+        syllabusPath: buildSyllabusPath(point.syllabus_node_id, nodes),
+      }));
   }
 
   async getCatalog(userId: string, query = "") {

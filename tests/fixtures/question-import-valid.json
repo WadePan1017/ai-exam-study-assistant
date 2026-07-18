@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "exam_code": "system-integration-project-management-engineer",
+  "items": [
+    {
+      "external_id": "q-project-goal-001",
+      "type": "multiple_choice",
+      "stem_md": "项目目标通常需要在哪些方面保持协调？",
+      "options": [
+        {
+          "key": "A",
+          "content_md": "范围"
+        },
+        {
+          "key": "B",
+          "content_md": "进度"
+        },
+        {
+          "key": "C",
+          "content_md": "成本"
+        },
+        {
+          "key": "D",
+          "content_md": "只考虑项目经理个人偏好"
+        }
+      ],
+      "answer": {
+        "keys": ["A", "B", "C"]
+      },
+      "explanation_md": "范围、进度和成本等目标彼此关联，需要结合项目约束进行协调；个人偏好不是项目目标。",
+      "difficulty": 1,
+      "importance": "A",
+      "knowledge_point_external_ids": [
+        "kp-project-characteristics"
+      ],
+      "tags": ["项目管理概论", "项目目标"],
+      "source": {
+        "type": "self_authored",
+        "note": "项目原创练习题，非真题",
+        "copyright_status": "self_authored"
+      },
+      "review_status": "published",
+      "version": 1
+    }
+  ]
+}

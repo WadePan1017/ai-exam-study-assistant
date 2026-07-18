@@ -72,7 +72,13 @@ export type ImportReport = {
   errors: Array<{ externalId: string; message: string }>;
 };
 
+export type KnowledgeReference = {
+  externalId: string;
+  syllabusPath: string[];
+};
+
 export interface LearningContentStore {
+  getKnowledgeReferences(): Promise<KnowledgeReference[]>;
   getCatalog(userId: string, query?: string): Promise<StudyCatalog>;
   getKnowledgePoint(
     userId: string,

@@ -91,6 +91,15 @@ describe("本地学习内容仓库", () => {
         isFavorite: false,
       }),
     );
+
+    await expect(store.getKnowledgeReferences()).resolves.toEqual(
+      expect.arrayContaining([
+        {
+          externalId: "kp-three-level",
+          syllabusPath: ["规划过程组", "项目范围管理", "创建WBS"],
+        },
+      ]),
+    );
   });
 
   it("存在拒绝项时不写入同一文件中的其他知识点", async () => {
