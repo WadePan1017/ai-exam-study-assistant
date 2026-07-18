@@ -1,5 +1,10 @@
 import { gradeObjectiveAnswer } from "@/features/practice/objective-grading";
 import { previewQuestionImport } from "@/features/practice/question-import-preview";
+import {
+  getReviewDueStatus,
+  updateReviewProgress,
+  type ReviewProgress,
+} from "@/features/review/review-schedule";
 import type {
   QuestionImportItem,
   QuestionImportPayload,
@@ -7,6 +12,8 @@ import type {
 import type { ImportReport } from "./learning-content-store";
 import type {
   KnowledgeReference,
+  MistakeFilters,
+  MistakeReason,
   PracticeSessionView,
   PracticeStore,
   StartPracticeInput,
@@ -92,6 +99,17 @@ type StoredAttempt = {
   createdAt: string;
 };
 
+type StoredReviewState = {
+  userId: string;
+  questionExternalId: string;
+  consecutiveCorrect: number;
+  isWrong: boolean;
+  reviewLevel: number;
+  nextReviewAt: string | null;
+  masteredAt: string | null;
+  errorReason: MistakeReason | null;
+};
+
 export class MemoryPracticeStore implements PracticeStore {
   private readonly questions: QuestionImportItem[] = seedQuestions.map(
     (question) => structuredClone(question),
@@ -108,11 +126,120 @@ export class MemoryPracticeStore implements PracticeStore {
   private readonly sessions = new Map<string, StoredSession>();
   private readonly attempts: StoredAttempt[] = [];
   private readonly favorites = new Set<string>();
+  private readonly reviewStates = new Map<string, StoredReviewState>();
 
-  constructor(private readonly random: () => number = Math.random) {}
+  constructor(
+    private readonly random: () => number = Math.random,
+    private readonly now: () => Date = () => new Date(),
+    private readonly timeZone = "Asia/Shanghai",
+  ) {}
 
   private favoriteKey(userId: string, externalId: string) {
     return `${userId}:${externalId}`;
+  }
+
+  async getMistakes(
+    userId: string,
+    filters: MistakeFilters = {},
+  ) {
+    return Array.from(this.reviewStates.values())
+      .filter((state) => state.userId === userId)
+      .filter(
+        (state) =>
+          !filters.status ||
+          (filters.status === "active"
+            ? state.isWrong
+            : !state.isWrong),
+      )
+      .map((state) => {
+        const question = this.currentQuestions().find(
+          (candidate) =>
+            candidate.external_id === state.questionExternalId,
+        );
+        const attempts = this.attempts.filter(
+          (attempt) =>
+            attempt.userId === userId &&
+            attempt.questionExternalId === state.questionExternalId,
+        );
+        const lastAttempt = attempts.at(-1);
+        const wrongAttempts = attempts.filter(
+          (attempt) => !attempt.isCorrect,
+        );
+        const lastWrongAttempt = wrongAttempts.at(-1);
+
+        if (!question || !lastAttempt || !lastWrongAttempt) {
+          throw new Error("错题状态缺少对应题目或作答记录");
+        }
+
+        return {
+          consecutiveCorrect: state.consecutiveCorrect,
+          dueStatus: getReviewDueStatus(
+            state.nextReviewAt ? new Date(state.nextReviewAt) : null,
+            this.now(),
+            this.timeZone,
+          ),
+          errorReason: state.errorReason,
+          externalId: question.external_id,
+          isFavorite: this.favorites.has(
+            this.favoriteKey(userId, question.external_id),
+          ),
+          isWrong: state.isWrong,
+          lastAttemptAt: lastAttempt.createdAt,
+          lastWrongAt: lastWrongAttempt.createdAt,
+          masteredAt: state.masteredAt,
+          moduleTitles:
+            this.questionModules.get(question.external_id) ?? [],
+          nextReviewAt: state.nextReviewAt,
+          reviewLevel: state.reviewLevel,
+          stem: question.stem_md,
+          totalAttempts: attempts.length,
+          version: question.version,
+          wrongAttempts: wrongAttempts.length,
+        };
+      })
+      .filter(
+        (mistake) =>
+          (!filters.moduleTitle ||
+            mistake.moduleTitles.includes(filters.moduleTitle)) &&
+          (!filters.reason ||
+            (filters.reason === "unassigned"
+              ? mistake.errorReason === null
+              : mistake.errorReason === filters.reason)) &&
+          (filters.minWrongAttempts === undefined ||
+            mistake.wrongAttempts >= filters.minWrongAttempts) &&
+          (!filters.lastWrongAfter ||
+            mistake.lastWrongAt >= filters.lastWrongAfter),
+      )
+      .sort((left, right) =>
+        right.lastAttemptAt.localeCompare(left.lastAttemptAt),
+      );
+  }
+
+  async setMistakeReason(
+    userId: string,
+    externalId: string,
+    reason: MistakeReason,
+  ) {
+    const key = this.favoriteKey(userId, externalId);
+    const state = this.reviewStates.get(key);
+    if (!state) {
+      throw new Error("错题不存在");
+    }
+    state.errorReason = reason;
+  }
+
+  async markMistakeMastered(
+    userId: string,
+    externalId: string,
+  ) {
+    const key = this.favoriteKey(userId, externalId);
+    const state = this.reviewStates.get(key);
+    if (!state) {
+      throw new Error("错题不存在");
+    }
+    state.isWrong = false;
+    state.masteredAt = this.now().toISOString();
+    state.nextReviewAt = null;
   }
 
   private shuffle(questions: QuestionImportItem[]) {
@@ -257,13 +384,42 @@ export class MemoryPracticeStore implements PracticeStore {
             ?.includes(input.moduleTitle ?? "") ?? false,
       );
     }
+    if (input.mode === "review") {
+      const reviewExternalIds = new Set(
+        Array.from(this.reviewStates.values())
+          .filter((state) => {
+            if (state.userId !== userId) {
+              return false;
+            }
+            if (input.questionExternalId) {
+              return (
+                state.questionExternalId === input.questionExternalId
+              );
+            }
+            return (
+              state.nextReviewAt !== null &&
+              new Date(state.nextReviewAt) <= this.now()
+            );
+          })
+          .map((state) => state.questionExternalId),
+      );
+      candidates = candidates.filter((question) =>
+        reviewExternalIds.has(question.external_id),
+      );
+    }
     if (input.mode === "random") {
       candidates = this.shuffle(candidates);
     }
     const questions = candidates.slice(0, input.count);
 
     if (questions.length === 0) {
-      throw new Error("当前筛选条件下没有可练习的题目");
+      throw new Error(
+        input.mode === "review"
+          ? input.questionExternalId
+            ? "错题不存在"
+            : "当前没有到期或逾期错题"
+          : "当前筛选条件下没有可练习的题目",
+      );
     }
 
     const session: StoredSession = {
@@ -272,7 +428,7 @@ export class MemoryPracticeStore implements PracticeStore {
       id: crypto.randomUUID(),
       mode: input.mode,
       questions,
-      startedAt: new Date().toISOString(),
+      startedAt: this.now().toISOString(),
       status: "in_progress",
       userId,
     };
@@ -326,6 +482,7 @@ export class MemoryPracticeStore implements PracticeStore {
       question.answer.keys,
       input.selectedKeys,
     );
+    const attemptedAt = this.now();
     session.answers.set(session.currentIndex, {
       ...result,
       confidence: input.confidence,
@@ -333,7 +490,7 @@ export class MemoryPracticeStore implements PracticeStore {
     });
     this.attempts.push({
       confidence: input.confidence,
-      createdAt: new Date().toISOString(),
+      createdAt: attemptedAt.toISOString(),
       id: crypto.randomUUID(),
       isCorrect: result.isCorrect,
       questionExternalId: question.external_id,
@@ -341,6 +498,49 @@ export class MemoryPracticeStore implements PracticeStore {
       selectedKeys: [...input.selectedKeys],
       userId,
     });
+    const reviewKey = this.favoriteKey(
+      userId,
+      question.external_id,
+    );
+    const previousReview = this.reviewStates.get(reviewKey);
+    const previousProgress: ReviewProgress | null = previousReview
+      ? {
+          consecutiveCorrect: previousReview.consecutiveCorrect,
+          isWrong: previousReview.isWrong,
+          masteredAt: previousReview.masteredAt
+            ? new Date(previousReview.masteredAt)
+            : null,
+          nextReviewAt: previousReview.nextReviewAt
+            ? new Date(previousReview.nextReviewAt)
+            : null,
+          reviewLevel: previousReview.reviewLevel,
+        }
+      : null;
+    const nextProgress = updateReviewProgress(
+      previousProgress,
+      {
+        attemptedAt,
+        confidence: input.confidence,
+        isCorrect: result.isCorrect,
+      },
+      this.timeZone,
+    );
+    if (nextProgress) {
+      this.reviewStates.set(
+        reviewKey,
+        {
+          consecutiveCorrect: nextProgress.consecutiveCorrect,
+          errorReason: previousReview?.errorReason ?? null,
+          isWrong: nextProgress.isWrong,
+          masteredAt: nextProgress.masteredAt?.toISOString() ?? null,
+          nextReviewAt:
+            nextProgress.nextReviewAt?.toISOString() ?? null,
+          questionExternalId: question.external_id,
+          reviewLevel: nextProgress.reviewLevel,
+          userId,
+        },
+      );
+    }
     if (session.answers.size === session.questions.length) {
       session.status = "completed";
     }

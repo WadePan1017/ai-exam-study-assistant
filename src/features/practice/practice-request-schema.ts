@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { questionExternalIdSchema } from "./question-import-schema";
+
 export const startPracticeRequestSchema = z
   .object({
     mode: z.enum([
@@ -7,9 +9,11 @@ export const startPracticeRequestSchema = z
       "chapter",
       "random",
       "unanswered",
+      "review",
     ]),
     count: z.number().int().min(1).max(100),
     moduleTitle: z.string().trim().min(1).max(100).optional(),
+    questionExternalId: questionExternalIdSchema.optional(),
   })
   .superRefine((input, context) => {
     if (input.mode === "chapter" && !input.moduleTitle) {
@@ -17,6 +21,13 @@ export const startPracticeRequestSchema = z
         code: "custom",
         message: "章节练习必须选择模块",
         path: ["moduleTitle"],
+      });
+    }
+    if (input.questionExternalId && input.mode !== "review") {
+      context.addIssue({
+        code: "custom",
+        message: "指定错题只能用于复习模式",
+        path: ["questionExternalId"],
       });
     }
   });

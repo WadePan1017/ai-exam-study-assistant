@@ -3,18 +3,21 @@ import type {
   QuestionImportPayload,
 } from "@/features/practice/question-import-schema";
 import type { QuestionImportPreview } from "@/features/practice/question-import-preview";
+import type { ReviewDueStatus } from "@/features/review/review-schedule";
 import type { ImportReport } from "./learning-content-store";
 
 export type PracticeMode =
   | "sequential"
   | "chapter"
   | "random"
-  | "unanswered";
+  | "unanswered"
+  | "review";
 
 export type StartPracticeInput = {
   mode: PracticeMode;
   count: number;
   moduleTitle?: string;
+  questionExternalId?: string;
 };
 
 export type PracticeFeedback = {
@@ -63,6 +66,44 @@ export type PracticeSetup = {
   modules: Array<{ title: string; count: number }>;
 };
 
+export type MistakeReason =
+  | "not_learned"
+  | "concept_confusion"
+  | "formula_memory"
+  | "calculation_error"
+  | "reading_error"
+  | "option_trap"
+  | "time_shortage"
+  | "careless"
+  | "other";
+
+export type MistakeListItem = {
+  externalId: string;
+  version: number;
+  stem: string;
+  moduleTitles: string[];
+  totalAttempts: number;
+  wrongAttempts: number;
+  consecutiveCorrect: number;
+  reviewLevel: number;
+  nextReviewAt: string | null;
+  lastAttemptAt: string;
+  lastWrongAt: string;
+  isWrong: boolean;
+  isFavorite: boolean;
+  masteredAt: string | null;
+  errorReason: MistakeReason | null;
+  dueStatus: ReviewDueStatus;
+};
+
+export type MistakeFilters = {
+  lastWrongAfter?: string;
+  minWrongAttempts?: number;
+  moduleTitle?: string;
+  reason?: MistakeReason | "unassigned";
+  status?: "active" | "mastered";
+};
+
 export type SubmitPracticeAnswerInput = {
   selectedKeys: string[];
   confidence: "certain" | "uncertain";
@@ -74,6 +115,19 @@ export type KnowledgeReference = {
 };
 
 export interface PracticeStore {
+  getMistakes(
+    userId: string,
+    filters?: MistakeFilters,
+  ): Promise<MistakeListItem[]>;
+  setMistakeReason(
+    userId: string,
+    externalId: string,
+    reason: MistakeReason,
+  ): Promise<void>;
+  markMistakeMastered(
+    userId: string,
+    externalId: string,
+  ): Promise<void>;
   getSetup(userId: string): Promise<PracticeSetup>;
   startSession(
     userId: string,

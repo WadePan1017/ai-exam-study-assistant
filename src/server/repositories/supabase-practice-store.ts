@@ -4,11 +4,15 @@ import { previewQuestionImport } from "@/features/practice/question-import-previ
 import type {
   QuestionImportPayload,
 } from "@/features/practice/question-import-schema";
+import { getReviewDueStatus } from "@/features/review/review-schedule";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 import type { ImportReport } from "./learning-content-store";
 import type {
   KnowledgeReference,
+  MistakeFilters,
+  MistakeListItem,
+  MistakeReason,
   PracticeSessionView,
   PracticeStore,
   StartPracticeInput,
@@ -46,6 +50,7 @@ const sessionRowSchema = z.object({
     "chapter",
     "random",
     "unanswered",
+    "review",
   ]),
   status: z.enum([
     "created",
@@ -87,6 +92,12 @@ const questionKnowledgeRowSchema = z.object({
   question_id: z.string().uuid(),
   knowledge_point_id: z.string().uuid(),
 });
+const mistakeQuestionRowSchema = z.object({
+  id: z.string().uuid(),
+  external_id: z.string(),
+  version: z.number().int().positive(),
+  stem_md: z.string(),
+});
 const importRpcSchema = z.object({
   job_id: z.string().uuid(),
   file_name: z.string(),
@@ -106,6 +117,31 @@ const importRpcSchema = z.object({
 });
 const startSessionRpcSchema = z.object({
   session_id: z.string().uuid(),
+});
+const mistakeReasonSchema = z.enum([
+  "not_learned",
+  "concept_confusion",
+  "formula_memory",
+  "calculation_error",
+  "reading_error",
+  "option_trap",
+  "time_shortage",
+  "careless",
+  "other",
+]);
+const userQuestionStateRowSchema = z.object({
+  question_external_id: z.string(),
+  total_attempts: z.number().int().nonnegative(),
+  wrong_attempts: z.number().int().positive(),
+  consecutive_correct: z.number().int().nonnegative(),
+  last_attempt_at: z.string(),
+  last_wrong_at: z.string(),
+  is_wrong: z.boolean(),
+  is_favorite: z.boolean(),
+  review_level: z.number().int().min(0).max(5),
+  next_review_at: z.string().nullable(),
+  mastered_at: z.string().nullable(),
+  error_reason: mistakeReasonSchema.nullable(),
 });
 
 function throwIfError(error: { message: string } | null) {
@@ -187,6 +223,203 @@ export class SupabasePracticeStore implements PracticeStore {
         z.array(questionPoolRowSchema).parse(data),
       ).filter((question) => question.review_status === "published"),
     };
+  }
+
+  async getMistakes(
+    userId: string,
+    filters: MistakeFilters = {},
+  ): Promise<MistakeListItem[]> {
+    const examId = await this.getExamId();
+    let stateQuery = this.client
+      .from("user_question_state")
+      .select(
+        "question_external_id,total_attempts,wrong_attempts,consecutive_correct,last_attempt_at,last_wrong_at,is_wrong,is_favorite,review_level,next_review_at,mastered_at,error_reason",
+      )
+      .eq("user_id", userId)
+      .eq("exam_id", examId)
+      .gt("wrong_attempts", 0);
+
+    if (filters.status) {
+      stateQuery = stateQuery.eq(
+        "is_wrong",
+        filters.status === "active",
+      );
+    }
+    if (filters.reason === "unassigned") {
+      stateQuery = stateQuery.is("error_reason", null);
+    } else if (filters.reason) {
+      stateQuery = stateQuery.eq("error_reason", filters.reason);
+    }
+    if (filters.minWrongAttempts !== undefined) {
+      stateQuery = stateQuery.gte(
+        "wrong_attempts",
+        filters.minWrongAttempts,
+      );
+    }
+    if (filters.lastWrongAfter) {
+      stateQuery = stateQuery.gte(
+        "last_wrong_at",
+        filters.lastWrongAfter,
+      );
+    }
+
+    const stateResult = await stateQuery;
+    throwIfError(stateResult.error);
+    const states = z
+      .array(userQuestionStateRowSchema)
+      .parse(stateResult.data);
+    if (states.length === 0) {
+      return [];
+    }
+
+    const stateByExternalId = new Map(
+      states.map((state) => [state.question_external_id, state]),
+    );
+    const published = await this.getPublishedCurrentQuestions();
+    const currentQuestions = published.questions.filter((question) =>
+      stateByExternalId.has(question.external_id),
+    );
+    if (currentQuestions.length === 0) {
+      return [];
+    }
+
+    const questionIds = currentQuestions.map((question) => question.id);
+    const [questionsResult, linksResult, nodesResult] =
+      await Promise.all([
+        this.client
+          .from("questions")
+          .select("id,external_id,version,stem_md")
+          .in("id", questionIds),
+        this.client
+          .from("question_knowledge_points")
+          .select("question_id,knowledge_point_id")
+          .in("question_id", questionIds),
+        this.client
+          .from("syllabus_nodes")
+          .select("id,parent_id,title")
+          .eq("exam_id", examId)
+          .neq("status", "archived"),
+      ]);
+    throwIfError(questionsResult.error);
+    throwIfError(linksResult.error);
+    throwIfError(nodesResult.error);
+
+    const questions = z
+      .array(mistakeQuestionRowSchema)
+      .parse(questionsResult.data);
+    const links = z
+      .array(questionKnowledgeRowSchema)
+      .parse(linksResult.data);
+    const nodes = z.array(syllabusNodeRowSchema).parse(nodesResult.data);
+    const knowledgeIds = Array.from(
+      new Set(links.map((link) => link.knowledge_point_id)),
+    );
+    const knowledgeById = new Map<
+      string,
+      z.infer<typeof knowledgeRowSchema>
+    >();
+
+    if (knowledgeIds.length > 0) {
+      const knowledgeResult = await this.client
+        .from("knowledge_points")
+        .select("id,syllabus_node_id")
+        .in("id", knowledgeIds);
+      throwIfError(knowledgeResult.error);
+      for (const knowledge of z
+        .array(knowledgeRowSchema)
+        .parse(knowledgeResult.data)) {
+        knowledgeById.set(knowledge.id, knowledge);
+      }
+    }
+
+    return questions
+      .map((question): MistakeListItem | null => {
+        const state = stateByExternalId.get(question.external_id);
+        if (!state) {
+          return null;
+        }
+        const moduleTitles = Array.from(
+          new Set(
+            links
+              .filter((link) => link.question_id === question.id)
+              .map((link) =>
+                knowledgeById.get(link.knowledge_point_id),
+              )
+              .filter(
+                (
+                  knowledge,
+                ): knowledge is z.infer<typeof knowledgeRowSchema> =>
+                  Boolean(knowledge),
+              )
+              .map((knowledge) =>
+                rootTitle(knowledge.syllabus_node_id, nodes),
+              ),
+          ),
+        );
+
+        return {
+          consecutiveCorrect: state.consecutive_correct,
+          dueStatus: getReviewDueStatus(
+            state.next_review_at
+              ? new Date(state.next_review_at)
+              : null,
+            new Date(),
+            "Asia/Shanghai",
+          ),
+          errorReason: state.error_reason,
+          externalId: question.external_id,
+          isFavorite: state.is_favorite,
+          isWrong: state.is_wrong,
+          lastAttemptAt: state.last_attempt_at,
+          lastWrongAt: state.last_wrong_at,
+          masteredAt: state.mastered_at,
+          moduleTitles,
+          nextReviewAt: state.next_review_at,
+          reviewLevel: state.review_level,
+          stem: question.stem_md,
+          totalAttempts: state.total_attempts,
+          version: question.version,
+          wrongAttempts: state.wrong_attempts,
+        };
+      })
+      .filter((mistake): mistake is MistakeListItem =>
+        Boolean(mistake),
+      )
+      .filter(
+        (mistake) =>
+          !filters.moduleTitle ||
+          mistake.moduleTitles.includes(filters.moduleTitle),
+      )
+      .sort((left, right) =>
+        right.lastAttemptAt.localeCompare(left.lastAttemptAt),
+      );
+  }
+
+  async setMistakeReason(
+    userId: string,
+    externalId: string,
+    reason: MistakeReason,
+  ) {
+    const { error } = await this.client.rpc("set_mistake_reason", {
+      p_question_external_id: externalId,
+      p_reason: reason,
+      p_user_id: userId,
+    });
+    throwIfError(error);
+  }
+
+  async markMistakeMastered(
+    userId: string,
+    externalId: string,
+  ) {
+    const { error } = await this.client.rpc(
+      "mark_mistake_mastered",
+      {
+        p_question_external_id: externalId,
+        p_user_id: userId,
+      },
+    );
+    throwIfError(error);
   }
 
   async getSetup(userId: string) {
@@ -303,15 +536,20 @@ export class SupabasePracticeStore implements PracticeStore {
   }
 
   async startSession(userId: string, input: StartPracticeInput) {
-    const { data, error } = await this.client.rpc(
-      "start_practice_session",
-      {
-        p_count: input.count,
-        p_mode: input.mode,
-        p_module_title: input.moduleTitle ?? null,
-        p_user_id: userId,
-      },
-    );
+    const { data, error } =
+      input.mode === "review"
+        ? await this.client.rpc("start_review_session", {
+            p_count: input.count,
+            p_question_external_id:
+              input.questionExternalId ?? null,
+            p_user_id: userId,
+          })
+        : await this.client.rpc("start_practice_session", {
+            p_count: input.count,
+            p_mode: input.mode,
+            p_module_title: input.moduleTitle ?? null,
+            p_user_id: userId,
+          });
     throwIfError(error);
 
     const sessionId = startSessionRpcSchema.parse(data).session_id;
