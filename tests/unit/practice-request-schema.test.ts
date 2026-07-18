@@ -25,6 +25,32 @@ describe("练习请求校验", () => {
     ).toBe(false);
   });
 
+  it("允许创建到期错题复习会话", () => {
+    expect(
+      startPracticeRequestSchema.safeParse({
+        count: 20,
+        mode: "review",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("指定错题只能用于复习模式", () => {
+    expect(
+      startPracticeRequestSchema.safeParse({
+        count: 1,
+        mode: "review",
+        questionExternalId: "q-project-characteristics-001",
+      }).success,
+    ).toBe(true);
+    expect(
+      startPracticeRequestSchema.safeParse({
+        count: 1,
+        mode: "random",
+        questionExternalId: "q-project-characteristics-001",
+      }).success,
+    ).toBe(false);
+  });
+
   it("拒绝重复答案和超过2MB的题目导入请求", () => {
     expect(
       submitPracticeAnswerRequestSchema.safeParse({

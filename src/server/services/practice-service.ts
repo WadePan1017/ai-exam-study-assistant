@@ -3,6 +3,8 @@ import "server-only";
 import type { QuestionImportPayload } from "@/features/practice/question-import-schema";
 import { MemoryPracticeStore } from "@/server/repositories/memory-practice-store";
 import type {
+  MistakeFilters,
+  MistakeReason,
   PracticeStore,
   StartPracticeInput,
   SubmitPracticeAnswerInput,
@@ -80,6 +82,28 @@ export function setOwnerQuestionFavorite(
     OWNER_PROFILE_ID,
     externalId,
     isFavorite,
+  );
+}
+
+export function getOwnerMistakes(filters: MistakeFilters = {}) {
+  return getPracticeStore().getMistakes(OWNER_PROFILE_ID, filters);
+}
+
+export function setOwnerMistakeReason(
+  externalId: string,
+  reason: MistakeReason,
+) {
+  return getPracticeStore().setMistakeReason(
+    OWNER_PROFILE_ID,
+    externalId,
+    reason,
+  );
+}
+
+export function markOwnerMistakeMastered(externalId: string) {
+  return getPracticeStore().markMistakeMastered(
+    OWNER_PROFILE_ID,
+    externalId,
   );
 }
 
