@@ -1,0 +1,63 @@
+# AGENTS.md
+
+## Project Scope
+
+This project is a mobile-first exam study assistant for one exam only:
+
+- 系统集成项目管理工程师（中级）
+
+Do not implement multi-exam UI or unrelated exam content.
+
+## Required Workflow
+
+1. Read `docs/spec/` before changing code.
+2. Work phase by phase.
+3. Present a plan before each phase.
+4. Do not start the next phase without approval.
+5. Keep changes small, testable, and reversible.
+6. Never delete existing working features without explicit approval.
+7. Every phase must finish with lint, typecheck, tests, and build.
+
+## Engineering Rules
+
+- TypeScript strict mode.
+- No `any` unless narrowly justified in a comment.
+- Validate external input with Zod or equivalent.
+- Keep business rules out of UI components.
+- Use database migrations.
+- Preserve historical attempts and question versions.
+- Do not hardcode exam duration, question count, or score rules in pages.
+- Do not expose secrets in client code.
+- Do not commit `.env` files or credentials.
+- All user data must be scoped by `user_id`.
+- Admin authorization must be checked server-side.
+- Use Chinese UI copy unless a technical identifier requires English.
+
+## Content Rules
+
+- No scraping or bulk copying of commercial textbooks/question banks.
+- Every knowledge point and question needs source and copyright metadata.
+- AI content defaults to draft and requires human review.
+- Disputed questions must not appear in mock exams.
+
+## Quality Gate
+
+Before reporting completion:
+
+- lint passes
+- typecheck passes
+- unit tests pass
+- relevant E2E tests pass
+- production build passes
+- migration tested on a clean database
+- README and `.env.example` updated
+- manual mobile acceptance steps provided
+
+## Documentation
+
+Maintain:
+
+- `docs/CHANGELOG.md`
+- `docs/DECISIONS.md`
+- `docs/KNOWN_ISSUES.md`
+- database migration notes

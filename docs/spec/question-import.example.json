@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "exam_code": "system-integration-project-management-engineer",
+  "items": [
+    {
+      "external_id": "q-demo-001",
+      "type": "single_choice",
+      "stem_md": "在项目管理中，以下哪项最符合项目的特征？",
+      "options": [
+        {
+          "key": "A",
+          "content_md": "持续重复开展且没有明确结束时间"
+        },
+        {
+          "key": "B",
+          "content_md": "为创造独特成果而开展的临时性工作"
+        },
+        {
+          "key": "C",
+          "content_md": "仅指大型工程建设活动"
+        },
+        {
+          "key": "D",
+          "content_md": "必须由外部客户发起"
+        }
+      ],
+      "answer": {
+        "keys": [
+          "B"
+        ]
+      },
+      "explanation_md": "项目具有临时性和独特性。其规模可大可小，也不要求必须由外部客户发起。",
+      "difficulty": 1,
+      "importance": "A",
+      "knowledge_point_external_ids": [
+        "kp-project-basic-001"
+      ],
+      "tags": [
+        "项目管理概论",
+        "基础概念"
+      ],
+      "source": {
+        "type": "self_authored",
+        "note": "项目导入示例，非真题",
+        "copyright_status": "self_authored"
+      },
+      "review_status": "reviewed",
+      "version": 1
+    }
+  ]
+}

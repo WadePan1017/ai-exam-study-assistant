@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "exam_code": "system-integration-project-management-engineer",
+  "items": [
+    {
+      "external_id": "kp-project-basic-001",
+      "syllabus_path": [
+        "项目管理概论",
+        "项目与项目管理"
+      ],
+      "title": "项目的基本特征",
+      "summary": "项目是为创造独特产品、服务或成果而进行的临时性工作。",
+      "content_md": "项目具有明确的开始与结束，并产生独特成果。临时性不等于持续时间短。",
+      "exam_focus_md": "重点区分项目与运营。",
+      "confusion_md": "运营通常是持续、重复的工作；项目具有临时性和独特性。",
+      "work_example_md": "完成一次古建筑数字化宣传片属于项目；长期维护企业账号更接近运营。",
+      "formula_md": "",
+      "importance": "A",
+      "difficulty": 1,
+      "source": {
+        "type": "user_note",
+        "note": "个人原创学习笔记示例",
+        "copyright_status": "user_note"
+      },
+      "review_status": "reviewed",
+      "version": 1
+    }
+  ]
+}
