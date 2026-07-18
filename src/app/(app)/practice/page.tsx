@@ -1,21 +1,31 @@
 import { ClipboardList } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { PracticeLauncher } from "@/components/practice/practice-launcher";
 import { EmptyState } from "@/components/ui/empty-state";
+import { getOwnerPracticeSetup } from "@/server/services/practice-service";
 
-export default function PracticePage() {
+export const dynamic = "force-dynamic";
+
+export default async function PracticePage() {
+  const setup = await getOwnerPracticeSetup();
+
   return (
     <div className="space-y-6">
       <PageHeader
-        description="顺序、章节、随机和未做题练习将在Phase 3实现。"
+        description="选择练习方式和题量。每次作答都会保存，刷新后仍可继续。"
         eyebrow="刷题中心"
-        title="稳定记录每一次作答"
+        title="开始一次专注练习"
       />
-      <EmptyState
-        description="题库尚未导入，因此暂时不能开始练习。这里不会用示例按钮伪装成已实现功能。"
-        icon={ClipboardList}
-        title="暂无可练习题目"
-      />
+      {setup.totalAvailable > 0 ? (
+        <PracticeLauncher setup={setup} />
+      ) : (
+        <EmptyState
+          description="还没有已发布的合规题目。请先到内容管理导入题目 JSON。"
+          icon={ClipboardList}
+          title="暂无可练习题目"
+        />
+      )}
     </div>
   );
 }

@@ -58,6 +58,13 @@ export class MemoryLearningContentStore implements LearningContentStore {
     }));
   }
 
+  async getKnowledgeReferences() {
+    return Array.from(this.knowledgePoints.values(), (item) => ({
+      externalId: item.external_id,
+      syllabusPath: [...item.syllabus_path],
+    }));
+  }
+
   async getCatalog(userId: string, query = ""): Promise<StudyCatalog> {
     const states = new Map<string, KnowledgeStateInput>();
     for (const [key, state] of this.states) {

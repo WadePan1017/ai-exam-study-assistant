@@ -1,4 +1,5 @@
 import { KnowledgeImportPanel } from "@/components/admin/knowledge-import-panel";
+import { QuestionImportPanel } from "@/components/admin/question-import-panel";
 import { PageHeader } from "@/components/layout/page-header";
 
 export default function AdminPage() {
@@ -7,9 +8,10 @@ export default function AdminPage() {
       <PageHeader
         description="个人所有者同时拥有学习与内容管理权限。导入内容必须标注来源、版权状态和审核状态。"
         eyebrow="内容管理"
-        title="管理知识点"
+        title="管理知识点与题目"
       />
       <KnowledgeImportPanel />
+      <QuestionImportPanel />
       <aside className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950 sm:p-6">
         <h2 className="font-semibold">内容合规提醒</h2>
         <p className="mt-1">

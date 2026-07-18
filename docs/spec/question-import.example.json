@@ -3,7 +3,7 @@
   "exam_code": "system-integration-project-management-engineer",
   "items": [
     {
-      "external_id": "q-demo-001",
+      "external_id": "q-project-characteristics-example-001",
       "type": "single_choice",
       "stem_md": "在项目管理中，以下哪项最符合项目的特征？",
       "options": [
@@ -33,7 +33,7 @@
       "difficulty": 1,
       "importance": "A",
       "knowledge_point_external_ids": [
-        "kp-project-basic-001"
+        "kp-project-characteristics"
       ],
       "tags": [
         "项目管理概论",
@@ -44,7 +44,7 @@
         "note": "项目导入示例，非真题",
         "copyright_status": "self_authored"
       },
-      "review_status": "reviewed",
+      "review_status": "published",
       "version": 1
     }
   ]
